@@ -18,10 +18,12 @@ namespace StorageApi.Controllers
     [ApiController]
     public class ImagesController : ControllerBase
     {
+        private readonly IHostingEnvironment environment;
         IConfiguration config;
         String connectionString;
         public ImagesController(IHostingEnvironment environment, IConfiguration config)
         {
+            this.environment = environment;
             this.config = config;
             connectionString = config.GetValue<string>("AzureConnectionString");
         }     
@@ -29,37 +31,45 @@ namespace StorageApi.Controllers
         [HttpPost]
         public async Task<IActionResult> Post()
         {
-            var httpRequest = HttpContext.Request;
-            if(httpRequest.Form.Files.Count < 1)
-            {
-                return BadRequest();
-            }
+            string folderName = "Upload";
+            string webRootPath = environment.WebRootPath;
+            string newPath = Path.Combine(webRootPath, folderName);
 
-            foreach(var file in httpRequest.Form.Files)
+            if (Request.Form != null)
             {
-                var postedFile = httpRequest.Form.Files.GetFile(file.FileName);
-                Guid guid = Guid.NewGuid();
-                CloudStorageAccount storageAccount;
-                if (CloudStorageAccount.TryParse(connectionString, out storageAccount))
+                var httpRequest = Request.Form;
+                if (httpRequest.Files != null)
                 {
-                    CloudBlobClient cloudBlobClient = storageAccount.CreateCloudBlobClient();
-                    CloudBlobContainer cloudBlobContainer = cloudBlobClient.GetContainerReference("imagecontainer");
-                    if(!cloudBlobContainer.Exists())
+                    if (!Directory.Exists(newPath))
                     {
-                        cloudBlobContainer.CreateIfNotExists();
+                        Directory.CreateDirectory(newPath);
                     }
-                    CloudBlockBlob cloudBlockBlob = cloudBlobContainer.GetBlockBlobReference(guid.ToString());
+                    foreach (var file in httpRequest.Files)
+                    {
+                        Guid guid = Guid.NewGuid();
+                        CloudStorageAccount storageAccount;
+                        if (CloudStorageAccount.TryParse(connectionString, out storageAccount))
+                        {
+                            CloudBlobClient cloudBlobClient = storageAccount.CreateCloudBlobClient();
+                            CloudBlobContainer cloudBlobContainer = cloudBlobClient.GetContainerReference("imagecontainer");
+                            if (!cloudBlobContainer.Exists())
+                            {
+                                cloudBlobContainer.CreateIfNotExists();
+                            }
+                            CloudBlockBlob cloudBlockBlob = cloudBlobContainer.GetBlockBlobReference(guid.ToString()+".jpg");
 
-                    if (!cloudBlockBlob.Exists())
-                    {
-                        await cloudBlockBlob.UploadFromFileAsync(postedFile.FileName);
+                            if (!cloudBlockBlob.Exists())
+                            {
+                                await cloudBlockBlob.UploadFromStreamAsync(file.OpenReadStream());
+                            }
+                            else
+                            {
+                                return BadRequest("Error while uploading.");
+                            }
+                            return Ok("File: " + file.FileName + " uploaded.");
+                        }
                     }
-                    else
-                    {
-                        return BadRequest("Error while uploading.");
-                    }
-                    return Ok("File: " + postedFile.FileName + " uploaded.");
-                }               
+                }
             }
             return BadRequest("Error ocurred");
         }
@@ -82,6 +92,7 @@ namespace StorageApi.Controllers
             }
             return BadRequest("Cannot connect to cloud.");
         }
+
 
 
     }
