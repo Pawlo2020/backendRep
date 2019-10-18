@@ -29,47 +29,32 @@ namespace StorageApi.Controllers
         }     
 
         [HttpPost]
-        public async Task<IActionResult> Post()
+        public async Task<IActionResult> Post(IFormFile file)
         {
-            string folderName = "Upload";
-            string webRootPath = environment.WebRootPath;
-            string newPath = Path.Combine(webRootPath, folderName);
-
-            if (Request.Form != null)
+            if (file != null)
             {
-                var httpRequest = Request.Form;
-                if (httpRequest.Files != null)
+                Guid guid = Guid.NewGuid();
+                CloudStorageAccount storageAccount;
+                if (CloudStorageAccount.TryParse(connectionString, out storageAccount))
                 {
-                    if (!Directory.Exists(newPath))
+                    CloudBlobClient cloudBlobClient = storageAccount.CreateCloudBlobClient();
+                    CloudBlobContainer cloudBlobContainer = cloudBlobClient.GetContainerReference("imagecontainer");
+                    if (!cloudBlobContainer.Exists())
                     {
-                        Directory.CreateDirectory(newPath);
+                        cloudBlobContainer.CreateIfNotExists();
                     }
-                    foreach (var file in httpRequest.Files)
-                    {
-                        Guid guid = Guid.NewGuid();
-                        CloudStorageAccount storageAccount;
-                        if (CloudStorageAccount.TryParse(connectionString, out storageAccount))
-                        {
-                            CloudBlobClient cloudBlobClient = storageAccount.CreateCloudBlobClient();
-                            CloudBlobContainer cloudBlobContainer = cloudBlobClient.GetContainerReference("imagecontainer");
-                            if (!cloudBlobContainer.Exists())
-                            {
-                                cloudBlobContainer.CreateIfNotExists();
-                            }
-                            CloudBlockBlob cloudBlockBlob = cloudBlobContainer.GetBlockBlobReference(guid.ToString()+".jpg");
+                    CloudBlockBlob cloudBlockBlob = cloudBlobContainer.GetBlockBlobReference(guid.ToString()+".jpg");
 
-                            if (!cloudBlockBlob.Exists())
-                            {
-                                await cloudBlockBlob.UploadFromStreamAsync(file.OpenReadStream());
-                            }
-                            else
-                            {
-                                return BadRequest("Error while uploading.");
-                            }
-                            return Ok("File: " + file.FileName + " uploaded.");
-                        }
+                    if (!cloudBlockBlob.Exists())
+                    {
+                        await cloudBlockBlob.UploadFromStreamAsync(file.OpenReadStream());
                     }
-                }
+                    else
+                    {
+                        return BadRequest("Error while uploading.");
+                    }
+                    return Ok("File: " + file.FileName + " uploaded.");
+                }                   
             }
             return BadRequest("Error ocurred");
         }
