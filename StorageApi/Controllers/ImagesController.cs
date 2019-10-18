@@ -9,6 +9,8 @@ using Microsoft.Extensions.Configuration;
 using StorageApi.Models;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
+using System.IO;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace StorageApi.Controllers
 {
@@ -25,16 +27,23 @@ namespace StorageApi.Controllers
         }     
 
         [HttpPost]
-        public async Task<IActionResult> Post(FileUploadAPI files)
+        public async Task<IActionResult> Post(string files)
         {
-            if (files.files.Length > 0)
+            var httpRequest = HttpContext.Request;
+            if(httpRequest.Form.Files.Count < 1)
             {
+                return BadRequest();
+            }
+
+            foreach(var file in httpRequest.Form.Files)
+            {
+                //var postedFile = httpRequest.Form.Files[];
                 Guid guid = Guid.NewGuid();
                 CloudStorageAccount storageAccount;
                 if (CloudStorageAccount.TryParse(connectionString, out storageAccount))
                 {
                     CloudBlobClient cloudBlobClient = storageAccount.CreateCloudBlobClient();
-                    CloudBlobContainer cloudBlobContainer = cloudBlobClient.GetContainerReference("imageContainer");
+                    CloudBlobContainer cloudBlobContainer = cloudBlobClient.GetContainerReference("imagecontainer");
                     if(!cloudBlobContainer.Exists())
                     {
                         cloudBlobContainer.CreateIfNotExists();
@@ -43,13 +52,13 @@ namespace StorageApi.Controllers
 
                     if (!cloudBlockBlob.Exists())
                     {
-                        await cloudBlockBlob.UploadFromFileAsync(files.files.FileName);
+                        await cloudBlockBlob.UploadFromFileAsync(postedFile.FileName);
                     }
                     else
                     {
                         return BadRequest("Error while uploading.");
                     }
-                    return Ok("File: " + files.files.FileName + " uploaded.");
+                    return Ok("File: " + postedFile.FileName + " uploaded.");
                 }               
             }
             return BadRequest("Error ocurred");
@@ -62,7 +71,7 @@ namespace StorageApi.Controllers
             if(CloudStorageAccount.TryParse(connectionString, out cloudStorageAccount))
             {
                 CloudBlobClient cloudBlobClient = cloudStorageAccount.CreateCloudBlobClient();
-                CloudBlobContainer cloudBlobContainer = cloudBlobClient.GetContainerReference("imageContainer");
+                CloudBlobContainer cloudBlobContainer = cloudBlobClient.GetContainerReference("imagecontainer");
                 if(!cloudBlobContainer.Exists())
                 {
                     return NotFound();
