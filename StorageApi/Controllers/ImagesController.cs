@@ -43,7 +43,7 @@ namespace StorageApi.Controllers
                     {
                         cloudBlobContainer.CreateIfNotExists();
                     }
-                    CloudBlockBlob cloudBlockBlob = cloudBlobContainer.GetBlockBlobReference(guid.ToString()+".jpg");
+                    CloudBlockBlob cloudBlockBlob = cloudBlobContainer.GetBlockBlobReference(guid.ToString()+Path.GetExtension(file.FileName));
 
                     if (!cloudBlockBlob.Exists())
                     {
