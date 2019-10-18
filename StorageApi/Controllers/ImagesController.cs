@@ -27,7 +27,7 @@ namespace StorageApi.Controllers
         }     
 
         [HttpPost]
-        public async Task<IActionResult> Post(string files)
+        public async Task<IActionResult> Post()
         {
             var httpRequest = HttpContext.Request;
             if(httpRequest.Form.Files.Count < 1)
@@ -37,7 +37,7 @@ namespace StorageApi.Controllers
 
             foreach(var file in httpRequest.Form.Files)
             {
-                //var postedFile = httpRequest.Form.Files[];
+                var postedFile = httpRequest.Form.Files.GetFile(file.FileName);
                 Guid guid = Guid.NewGuid();
                 CloudStorageAccount storageAccount;
                 if (CloudStorageAccount.TryParse(connectionString, out storageAccount))
